@@ -1,0 +1,61 @@
+version: '3'
+
+networks:
+    default:
+        name: ${DOCKER_NETWORK}
+
+services:
+    traefik:
+        restart: unless-stopped
+        image: traefik:v2.6
+        command:
+            - "--api.insecure=true"
+            - "--providers.docker=true"
+            - "--providers.docker.exposedbydefault=false"
+            - "--entrypoints.http.address=:80"
+            - "--entrypoints.https.address=:443"
+            - "--certificatesresolvers.myresolver.acme.tlschallenge=true"
+            - "--certificatesresolvers.myresolver.acme.email=${LETSENCRYPT_EMAIL}"
+            - "--certificatesresolvers.myresolver.acme.storage=/letsencrypt/acme.json"
+        ports:
+            - 80:80
+            - 443:443
+        volumes:
+            - ./letsencrypt:/letsencrypt
+            - /var/run/docker.sock:/var/run/docker.sock:ro
+        networks:
+            - default
+
+    imgproxy:
+        restart: unless-stopped
+        image: darthsim/imgproxy:v2
+        environment:
+            - IMGPROXY_KEY=${IMGPROXY_KEY}
+            - IMGPROXY_SALT=${IMGPROXY_SALT}
+        networks:
+            - default
+
+    nginx:
+        restart: unless-stopped
+        image: nginx:1
+        links:
+            - traefik
+            - imgproxy
+        volumes:
+            - ./nginx/templates:/etc/nginx/templates
+            - ./cache:/cache
+        environment:
+            - CACHE_KEYS_ZONE_SIZE=${CACHE_KEYS_ZONE_SIZE}
+            - CACHE_MAX_SIZE=${CACHE_MAX_SIZE}
+            - CACHE_INACTIVE=${CACHE_INACTIVE}
+        networks:
+            - default
+        labels:
+            - "traefik.enable=true"
+            - "traefik.http.routers.nginx-http.rule=Host(`${HOST}`)"
+            - "traefik.http.routers.nginx-http.entrypoints=http"
+            - "traefik.http.routers.nginx-http.middlewares=nginx-https"
+            - "traefik.http.middlewares.nginx-https.redirectscheme.scheme=https"
+            - "traefik.http.routers.nginx-https.rule=Host(`${HOST}`)"
+            - "traefik.http.routers.nginx-https.entrypoints=https"
+            - "traefik.http.routers.nginx-https.tls.certresolver=myresolver"
