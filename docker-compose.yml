@@ -5,7 +5,7 @@ networks:
 services:
     traefik:
         restart: unless-stopped
-        image: traefik:v2.6
+        image: traefik:v2.11
         command:
             - "--api.insecure=true"
             - "--providers.docker=true"
