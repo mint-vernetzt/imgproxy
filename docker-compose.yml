@@ -27,6 +27,8 @@ services:
     imgproxy:
         restart: unless-stopped
         image: darthsim/imgproxy:v2
+        extra_hosts:
+            - "${SUPABASE_DOMAIN}:${SUPABASE_PRIVATE_IP:-0.0.0.0}"
         environment:
             - IMGPROXY_KEY=${IMGPROXY_KEY}
             - IMGPROXY_SALT=${IMGPROXY_SALT}
